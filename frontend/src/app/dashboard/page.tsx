@@ -35,6 +35,7 @@ import {
 } from "@mui/material";
 import { Button, Pagination, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Chip, Tooltip, ChipProps, Input } from "@heroui/react"
 import { Pencil, Trash2, Search } from "lucide-react";
+import { Scheduler } from "timers/promises"
 
 //Lead//
 const chartConfig = {
@@ -71,15 +72,15 @@ const chartConfigInvoice = {
     label: "Invoice",
   },
   Pending: {
-    label: "New",
+    label: "Pending",
     color: "hsl(var(--chart-2))",
   },
   Unpaid: {
-    label: "Demo",
+    label: "Unpaid",
     color: "hsl(var(--chart-3))",
   },
   Paid: {
-    label: "Discussion",
+    label: "Paid",
     color: "hsl(var(--chart-4))",
   },
 
@@ -140,7 +141,7 @@ interface Invoice {
   amount: number;
   discount: number;
   gstRate: number;
-  status: string;
+  status: "Paid" | "Unpaid" | "Pending"; // Update this line
   date: Date;
   endDate: Date;
   totalWithoutGst: number;
@@ -180,6 +181,19 @@ interface Task {
 }
 
 
+interface  Schedule {
+  _id: string;
+  assignedUser: string;
+  customer: string;
+  location: string;
+  status: "Scheduled" | "Completed" | "Cancelled" | "Postpone" ;
+  eventType: "call"|"Call"|"Meeting"|"meeting"|"Demo"|"demo"|"Follow-Up"|"follow-up";
+  priority:"Low"|"low"|"Medium"|"medium"|"High"|"high";
+  description:string;
+  recurrence: "one-time"| "Daily"| "Weekly"| "Monthly"| "Yearly";
+  date: string;
+}
+
 
 interface CategorizedLeads {
   [key: string]: Lead[];
@@ -197,6 +211,9 @@ interface CategorizedTasks {
   [key: string]: Task[];
 }
 
+interface  CategorizedScheduled {
+  [key: string]: Schedule[];
+}
 
 //lead//
 const columns = [
@@ -303,34 +320,40 @@ export default function Page() {
   const [filterValueInvoice, setFilterValueInvoice] = useState("");
   const [filterValueDeal, setFilterValueDeal] = useState("");
   const [filterValueTask, setFilterValueTask] = useState("");
+  const [filterValueSchedule, setFilterValueSchedule] = useState("");
 
   const [statusFilter, setStatusFilter] = useState("all");
   const [categorizedLeads, setCategorizedLeads] = useState<CategorizedLeads>({});
   const [categorizedInvoices, setCategorizedInvoices] = useState<CategorizedInvoices>({});
   const [categorizedDeals, setCategorizedDeals] = useState<CategorizedDeals>({});
   const [categorizedTasks, setCategorizedTasks] = useState<CategorizedTasks>({});
+  const [CategorizedScheduled , setCategorizedScheduled] = useState<CategorizedScheduled>({});
   const [loading, setLoading] = useState(true);
 
   const [page, setPage] = useState(1);
   const [pageInvoice, setPageInvoice] = useState(1);
   const [pageDeal, setPageDeal] = useState(1);
   const [pageTask, setPageTask] = useState(1);
+ const [pageSchedule, setPageSchedule] = useState(1);
 
   const [leads, setLeads] = useState<Lead[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [schedule, setSchedule] = useState<Schedule[]>([]);
 
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const hasSearchFilter = Boolean(filterValue);
   const hasSearchFilterInvoice = Boolean(filterValueInvoice);
   const hasSearchFilterDeal = Boolean(filterValueDeal);
   const hasSearchFilterTask = Boolean(filterValueTask);
+  const hasSearchFilterSchedule = Boolean(filterValueSchedule);
 
     const [selectedKeys, setSelectedKeys] = React.useState<Selection>(new Set());
   const [selectedKeysInvoice, setSelectedKeysInvoice] = useState(new Set([]));
   const [selectedKeysDeal, setSelectedKeysDeal] = useState(new Set([]));
   const [selectedKeysTask, setSelectedKeysTask] = useState(new Set([]));
+ const [seletedKeysSchedule, setSelectedKeysSchedule] = useState(new Set([]));
 
   const [visibleColumns, setVisibleColumns] = useState(new Set(INITIAL_VISIBLE_COLUMNS));
   const [visibleColumnsInvoice, setVisibleColumnsInvoice] = useState(new Set(INITIAL_VISIBLE_COLUMNS_INVOICE));
@@ -350,6 +373,11 @@ export default function Page() {
     column: "subject",
     direction: "ascending",
   });
+
+  const [sortDescriptorSchedule, setSortDescriptorSchedule] = useState ({
+    column:"companyName",
+    direction:"ascending",
+  })
 
   const filteredItems = React.useMemo(() => {
     let filteredLeads = [...leads];
@@ -459,6 +487,7 @@ export default function Page() {
         );
       });
     }
+    
 
     if (statusFilter !== "all") {
       filteredTasks = filteredTasks.filter((task) =>
@@ -468,6 +497,34 @@ export default function Page() {
 
     return filteredTasks;
   }, [tasks, filterValueTask, statusFilter]);
+
+
+  const filteredItemsSchedule = React.useMemo(() => {
+    let filteredSchedule = [...schedule];
+  
+    if (hasSearchFilterSchedule) {
+      filteredSchedule = filteredSchedule.filter((scheduled) => {
+        const searchableFields = {
+          assignedUser: scheduled.assignedUser,
+          customer: scheduled.customer,
+          location: scheduled.location,
+          status: scheduled.status,
+          eventType: scheduled.eventType,
+          priority: scheduled.priority,
+          description: scheduled.description,
+          recurrence: scheduled.recurrence,
+          date: scheduled.date,
+        };
+  
+        return Object.values(searchableFields).some(value =>
+          String(value || '').toLowerCase().includes(filterValueSchedule.toLowerCase())
+        );
+      });
+    }
+  
+    return filteredSchedule;
+  }, [schedule, filterValueSchedule]);
+
 
   const headerColumns = React.useMemo(() => {
     if (visibleColumns.size === columns.length) return columns; // Check if all columns are selected
@@ -510,6 +567,13 @@ export default function Page() {
     return filteredItemsTask.slice(start, end);
   }, [pageTask, filteredItemsTask, rowsPerPage]);
 
+  const itemsSchedule = React.useMemo (() =>{
+    const start = (pageDeal - 1) * rowsPerPage;
+    const end = start + rowsPerPage;
+
+    return filteredItemsSchedule.slice(start, end);
+  }, [pageSchedule, filteredItemsSchedule, rowsPerPage]);
+
   const sortedItems = React.useMemo(() => {
     return [...items].sort((a, b) => {
       const first = a[sortDescriptor.column as keyof Lead];
@@ -529,6 +593,17 @@ export default function Page() {
       return sortDescriptorDeal.direction === "descending" ? -cmp : cmp;
     });
   }, [sortDescriptorDeal, itemsDeal]);
+
+  const sortedSchedule = React.useMemo(() => {
+    return [...itemsSchedule].sort((a,b) => {
+      const first = a[sortDescriptorSchedule.column as keyof Schedule];
+      const second = b [sortDescriptorSchedule.column as keyof Schedule];
+      const cmp = first < second ? -1 : first > second ? 1 : 0;
+
+      return sortDescriptorSchedule.direction === "descending" ? -cmp : cmp;
+    })
+  })
+
 
   const sortedTasks = React.useMemo(() => {
     return [...itemsTask].sort((a, b) => {
@@ -594,14 +669,16 @@ export default function Page() {
         setInvoices(result.data);
 
         // Categorize invoices by status
-        const categorized = result.data.reduce((acc: CategorizedInvoices, invoice: Invoice) => {
+        const categorized = result.data.reduce((acc: Record<string, Invoice[]>, invoice: Invoice) => {
+          if (!invoice.status) return acc; // Avoid undefined statuses
           if (!acc[invoice.status]) {
             acc[invoice.status] = [];
           }
           acc[invoice.status].push(invoice);
           return acc;
-        }, {} as CategorizedInvoices);
-
+        }, {});
+        console.log("Categorized Invoices:", categorizedInvoices);
+        
         setCategorizedInvoices(categorized);
       } catch (error) {
         console.error('Error fetching invoices:', error);
@@ -683,6 +760,40 @@ export default function Page() {
     };
 
     fetchTasks();
+  }, []);
+
+  //Schedule//
+  useEffect(() => {
+    const fetchSchedule = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/v1/scheduledEvents/getAllScheduledEvents');
+        const result = await response.json();
+
+        // Check if result is an object with data property
+        if (!result || !Array.isArray(result.data)) {
+          console.error('Invalid data format received:', result);
+          return;
+        }
+
+        // Set the tasks data for the table
+        setTasks(result.data);
+
+        // Categorize tasks by status
+        const categorized = result.data.reduce((acc: CategorizedScheduled, scheduled: Schedule) => {
+          if (!acc[scheduled.status]) {
+            acc[scheduled.status] = [];
+          }
+          acc[scheduled.status].push(scheduled);
+          return acc;
+        }, {} as CategorizedScheduled);
+
+        setCategorizedScheduled(categorized);
+      } catch (error) {
+        console.error('Error fetching scheduleds:', error);
+      }
+    };
+
+    fetchSchedule();
   }, []);
 
 
@@ -1229,53 +1340,62 @@ export default function Page() {
         </Card>
       );
     }
+if (selectedChartDeal === "Bar Chart") {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Deal Bar Chart</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ChartContainer
+          config={chartConfigDeal}
+          style={{ backgroundColor: "black", padding: "10px", borderRadius: "8px" }}
+        >
+          <BarChart width={width} height={height} data={dynamicChartDataDeal} style={{ backgroundColor: "black" }}>
+            <CartesianGrid stroke="rgba(255, 255, 255, 0.2)" vertical={false} />
+            <XAxis
+              dataKey="browser"
+              tickLine={false}
+              tickMargin={10}
+              axisLine={false}
+              tick={{ fill: "white" }} // 👈 Axis labels white for visibility
+              tickFormatter={(value) =>
+                chartConfigDeal[value as keyof typeof chartConfigDeal]?.label
+              }
+            />
+            <ChartTooltip
+              cursor={false}
+              content={
+                <ChartTooltipContent
+                  hideLabel
+                  style={{ backgroundColor: "black", color: "white", border: "1px solid white" }}
+                />
+              }
+            />
+            <Bar
+              dataKey="visitors"
+              strokeWidth={2}
+              radius={8}
+              fill="#8884d8"
+              activeBar={({ ...props }) => {
+                return (
+                  <Rectangle
+                    {...props}
+                    fillOpacity={0.8}
+                    stroke={props.payload.fill}
+                    strokeDasharray={4}
+                    strokeDashoffset={4}
+                  />
+                );
+              }}
+            />
+          </BarChart>
+        </ChartContainer>
+      </CardContent>
+    </Card>
+  );
+}
 
-    if (selectedChartDeal === "Bar Chart") {
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle>Deal Bar Chart</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={chartConfigDeal}>
-              <BarChart width={width} height={height} data={dynamicChartDataDeal}>
-                <CartesianGrid vertical={false} />
-                <XAxis
-                  dataKey="browser"
-                  tickLine={false}
-                  tickMargin={10}
-                  axisLine={false}
-                  tickFormatter={(value) =>
-                    chartConfigDeal[value as keyof typeof chartConfigDeal]?.label
-                  }
-                />
-                <ChartTooltip
-                  cursor={false}
-                  content={<ChartTooltipContent hideLabel />}
-                />
-                <Bar
-                  dataKey="visitors"
-                  strokeWidth={2}
-                  radius={8}
-                  fill="#8884d8"
-                  activeBar={({ ...props }) => {
-                    return (
-                      <Rectangle
-                        {...props}
-                        fillOpacity={0.8}
-                        stroke={props.payload.fill}
-                        strokeDasharray={4}
-                        strokeDashoffset={4}
-                      />
-                    );
-                  }}
-                />
-              </BarChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-      );
-    }
   };
   //Deal//
 
@@ -1284,7 +1404,7 @@ export default function Page() {
   const bottomContent = React.useMemo(() => {
     return (
       <div className="py-2 px-2 flex justify-between items-center">
-        <span className="w-[30%] text-small text-default-400">
+        <span className="w-[30%] text-small text-default-400 ">
           {selectedKeys === "all"
             ? "All items selected"
             : `${selectedKeys.size} of ${filteredItems.length} selected`}
@@ -1419,6 +1539,40 @@ export default function Page() {
       </div>
     );
   }, [selectedKeysTask, tasks.length, pageTask, pagesTask, hasSearchFilterTask]);
+
+
+  const bottomContentSchedule = React.useMemo (() => {
+    return (
+      <div className="py-2 px-2 flex justify-between items-center">
+        <span className="w-[30%] text-small text-default-400">
+          {seletedKeysSchedule === "all" ? "All items selected"
+            : `${seletedKeysSchedule.size} of ${filteredItemsSchedule.length} selected`}
+        </span>
+        <Pagination
+          isCompact
+          showShadow
+          color="success"
+          page={pageSchedule}
+          total={pageSchedule}
+          onChange={setPageSchedule}
+          classNames={{
+            cursor: "bg-[hsl(339.92deg_91.04%_52.35%)] shadow-md",
+            item: "data-[active=true]:bg-[hsl(339.92deg_91.04%_52.35%)] data-[active=true]:text-white rounded-lg",
+          }}
+        />
+
+        <div className="rounded-lg bg-default-100 hover:bg-default-200 hidden sm:flex w-[30%] justify-end gap-2">
+          <Button className="bg-[hsl(339.92deg_91.04%_52.35%)] rounded-lg" isDisabled={pageSchedule === 1} size="sm" variant="flat" onPress={onPreviousPage}>
+            Previous
+          </Button>
+          <Button className="bg-[hsl(339.92deg_91.04%_52.35%)] rounded-lg" isDisabled={pageSchedule === 1} size="sm" variant="flat" onPress={onNextPage}>
+            Next
+          </Button>
+        </div>
+      </div>
+    );
+  })
+
 
   const renderCell = React.useCallback((lead: Lead, columnKey: React.Key) => {
     const cellValue = lead[columnKey as keyof Lead];
@@ -1740,7 +1894,7 @@ export default function Page() {
                     wrapper: "max-h-[382px]",
                   }}
                   selectedKeys={selectedKeys}
-                  selectionMode="multiple"
+                  selectionMode="none"
                   sortDescriptor={sortDescriptor}
                   onSelectionChange={setSelectedKeys}
                   onSortChange={setSortDescriptor}
@@ -1791,7 +1945,7 @@ export default function Page() {
                     wrapper: "max-h-[382px]",
                   }}
                   selectedKeys={selectedKeysInvoice}
-                  selectionMode="multiple"
+                  selectionMode="none"
                   topContentPlacement="outside"
                 >
                   <TableHeader columns={columnsInvoice}>
@@ -1840,7 +1994,7 @@ export default function Page() {
                     wrapper: "max-h-[382px]",
                   }}
                   selectedKeys={selectedKeysDeal}
-                  selectionMode="multiple"
+                  selectionMode="none"
                   sortDescriptor={sortDescriptorDeal}
                   onSortChange={setSortDescriptorDeal}
                   topContentPlacement="outside"
@@ -1891,7 +2045,7 @@ export default function Page() {
                     wrapper: "max-h-[382px]",
                   }}
                   selectedKeys={selectedKeysTask}
-                  selectionMode="multiple"
+                  selectionMode="none"
                   sortDescriptor={sortDescriptorTask}
                   onSelectionChange={setSelectedKeysTask}
                   onSortChange={setSortDescriptorTask}
@@ -1933,7 +2087,7 @@ export default function Page() {
                       wrapper: "max-h-[382px]",
                     }}
                     selectedKeys={selectedKeys}
-                    selectionMode="multiple"
+                    selectionMode="none"
                     topContentPlacement="outside"
                   >
                     <TableHeader columns={headerColumns}>
@@ -1947,7 +2101,7 @@ export default function Page() {
                         </TableColumn>
                       )}
                     </TableHeader>
-                    <TableBody emptyContent={"No invoices found"} items={sortedItems}>
+                    <TableBody emptyContent={"No invoices found"} items={sortedSchedule}>
                       {(item) => (
                         <TableRow key={item._id}>
                           {(columnKey) => <TableCell>{renderCell(item, columnKey)}</TableCell>}
@@ -1961,19 +2115,19 @@ export default function Page() {
 
             {/* Scedule Table */}
             <Grid item xs={12} sm={6} md={6} lg={6}>
-              <h1 className="text-2xl font-semibold mb-4 mt-4" style={{ textAlign: "center" }}>Scedule Table</h1>
+              <h1 className="text-2xl font-semibold mb-4 mt-4" style={{ textAlign: "center" }}>Schedule Table</h1>
               <Item>
                 <Item>
                   <Table
                     isHeaderSticky
                     aria-label="Invoices table with custom cells, pagination and sorting"
-                    bottomContent={bottomContent}
+                    bottomContent={bottomContentSchedule}
                     bottomContentPlacement="outside"
                     classNames={{
                       wrapper: "max-h-[382px]",
                     }}
-                    selectedKeys={selectedKeys}
-                    selectionMode="multiple"
+                    selectedKeys={setSelectedKeysSchedule}
+                    selectionMode="none"
                     topContentPlacement="outside"
                   >
                     <TableHeader columns={headerColumns}>
@@ -1987,7 +2141,7 @@ export default function Page() {
                         </TableColumn>
                       )}
                     </TableHeader>
-                    <TableBody emptyContent={"No invoices found"} items={sortedItems}>
+                    <TableBody emptyContent={"No scedul found"} items={sortedItems}>
                       {(item) => (
                         <TableRow key={item._id}>
                           {(columnKey) => <TableCell>{renderCell(item, columnKey)}</TableCell>}

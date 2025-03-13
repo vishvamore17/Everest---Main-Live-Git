@@ -13,6 +13,8 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbP
 import { ModeToggle } from "@/components/ModeToggle"
 import SearchBar from '@/components/globalSearch';
 import Notification from '@/components/notification';
+
+
 interface Lead {
   _id: string;
   companyName: string;
@@ -84,11 +86,11 @@ export default function App() {
   };
 
   const statusColors: Record<string, string> = {
-    Proposal: "bg-purple-200 text-gray-800 border-2 border-purple-900 shadow-lg shadow-purple-900/50",
-    New: "bg-purple-200 text-gray-800 border-2 border-purple-900 shadow-lg shadow-purple-900/50",
-    Discussion: "bg-purple-200 text-gray-800 border-2 border-purple-900 shadow-lg shadow-purple-900/50",
-    Demo: "bg-purple-200 text-gray-800 border-2 border-purple-900 shadow-lg shadow-purple-900/50",
-    Decided: "bg-purple-200 text-gray-800 border-2 border-purple-900 shadow-lg shadow-purple-900/50",
+    Proposal: " text-gray-800 border-2 border-black",
+    New: " text-gray-800 border-2 border-black",
+    Discussion: " text-gray-800 border-2 border-black",
+    Demo: " text-gray-800 border-2 border-black",
+    Decided: " text-gray-800 border-2 border-black",
   };
 
   const formatDate = (dateString: string): string => {
@@ -183,7 +185,7 @@ export default function App() {
               onDragLeave={() => setDraggedOver(null)}
             >
               <h2 className={`text-sm font-bold mb-4 px-5 py-2 rounded-lg ${statusColors[status]}`}>{status}</h2>
-              <div className="p-3 bg-[#FAF3DD]   rounded-md shadow">
+              <div className="p-3 border-2 border-black rounded-md shadow">
                 <p className="text-sm font-semibold text-gray-500">Total Leads: {leadsInStatus.length}</p>
                 <p className="text-sm font-semibold text-gray-500">Total Amount: ₹{totalAmount}</p>
               </div>
@@ -221,48 +223,42 @@ export default function App() {
         })}
       </div>
 
-      {isModalOpen && selectedLead && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm"
-          onClick={closeModal}
-        >
-          <div
-            className="modal-content p-6 rounded-md shadow-lg w-full max-w-3xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="modal-header">
-              <h2 className="text-xl font-semibold text-gray-800 mb-4">
-                Deal Details
-              </h2>
-              <button
-                onClick={closeModal}
-                className="text-xl font-semibold text-gray-600 hover:text-red-600"
-              >
-                <MdCancel />
-              </button>
-            </div>
-            <div className="form-content grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-6">
-              {Object.entries(selectedLead)
-                .filter(
-                  ([key]) =>
-                    !["_id", "isActive", "createdAt", "updatedAt"].includes(key)
-                ) 
-                .map(([key, value]) => (
-                  <p key={key} className="mb-4">
-                    <strong>
-                      {key.charAt(0).toUpperCase() + key.slice(1)}:
-                    </strong>{" "}
-                    {key === "date" || key === "endDate"
-                      ? value
-                        ? new Date(value).toLocaleDateString()
-                        : "N/A"
-                      : value || "N/A"}
-                  </p>
-                ))}
-            </div>
-          </div>
-        </div>
-      )}
+    
+              {isModalOpen && selectedLead && (
+                <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+                  <div className="w-full max-w-md h-auto relative">
+                    <div className="absolute inset-0 h-full w-full bg-gradient-to-r  rounded-full blur-lg scale-90 opacity-50" />
+    
+                    <div className="relative bg-white border border-gray-700 rounded-lg p-6 w-[800px] h-700 flex flex-col">
+                      <div
+                        className="absolute top-3 right-3 h-8 w-8 flex items-center justify-center cursor-pointer"
+                        onClick={() => {
+                          setIsModalOpen(false); 
+                        }}
+                      >
+                        <MdCancel className="text-gray-500 text-2xltext-gray-500 text-2xl"/>
+                          
+                      </div>
+    
+                     
+                      <h1 className="font-bold text-2xl text-gray-900 mb-6 text-center">Deal Details</h1>
+     <Separator className="my-4 border-gray-300" />
+                      <div className="grid grid-cols-2 gap-4 text-gray-700">
+                        {Object.entries(selectedLead)
+                          .filter(([key]) => !["_id", "__v","isActive", "createdAt", "updatedAt"].includes(key))
+                          .map(([key, value]) => (
+                            <p key={key} className="text-lg">
+                              <strong>{key.charAt(0).toUpperCase() + key.slice(1)}:</strong>{" "}
+                              {["date", "endDate"].includes(key) && value
+                                ? new Date(value).toLocaleDateString("en-GB")
+                                : value || "N/A"}
+                            </p>
+                          ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
     </div>
     </SidebarInset>
     </SidebarProvider>

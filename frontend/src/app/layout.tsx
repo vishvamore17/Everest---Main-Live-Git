@@ -19,6 +19,7 @@ export const metadata: Metadata = {
   description: "Dashboard by admin",
 };
 
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -37,6 +38,6 @@ export default function RootLayout({
           </ThemeProvider>
           <Toaster/>
       </body>
-    </html>
+    </html> 
   );
 } 
