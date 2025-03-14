@@ -35,7 +35,6 @@ import {
 } from "@mui/material";
 import { Button, Pagination, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow, Chip, Tooltip, ChipProps, Input } from "@heroui/react"
 import { Pencil, Trash2, Search } from "lucide-react";
-import { Scheduler } from "timers/promises"
 
 //Lead//
 const chartConfig = {
@@ -117,7 +116,7 @@ interface Lead {
   companyName: string;
   customerName: string;
   contactNumber: string;
-  emailAddress: string;
+  assigneduser: string;
   address: string;
   productName: string;
   amount: string;
@@ -130,6 +129,27 @@ interface Lead {
 }
 
 interface Invoice {
+  _id: string;
+  companyName: string;
+  customerName: string;
+  contactNumber: string;
+  emailAddress: string;
+  address: string;
+  gstNumber: string;
+  productName: string;
+  amount: number;
+  discount: number;
+  gstRate: number;
+  status: "Paid" | "Unpaid" | "Pending"; // Update this line
+  date: Date;
+  endDate: Date;
+  totalWithoutGst: number;
+  totalWithGst: number;
+  paidAmount: number;
+  remainingAmount: number;
+}
+
+interface Reminder {
   _id: string;
   companyName: string;
   customerName: string;
@@ -180,19 +200,19 @@ interface Task {
   isActive: boolean;
 }
 
-
-interface  Schedule {
-  _id: string;
+interface Schedule {
+  subject: string;
   assignedUser: string;
   customer: string;
   location: string;
-  status: "Scheduled" | "Completed" | "Cancelled" | "Postpone" ;
-  eventType: "call"|"Call"|"Meeting"|"meeting"|"Demo"|"demo"|"Follow-Up"|"follow-up";
-  priority:"Low"|"low"|"Medium"|"medium"|"High"|"high";
-  description:string;
-  recurrence: "one-time"| "Daily"| "Weekly"| "Monthly"| "Yearly";
+  status: "Scheduled"| "Completed"| "Cancelled"| "Postpone";
+  eventType:"call"|"Call"|"Meeting"|"meeting"|"Demo"|"demo"|"Follow-Up"|"follow-up"
+  priority: "Low"| "low"| "Medium"| "medium"| "High"| "high";
   date: string;
+  recurrence : "one-time"| "Daily"| "Weekly"| "Monthly"| "Yearly";
+  description: string;
 }
+
 
 
 interface CategorizedLeads {
@@ -211,10 +231,13 @@ interface CategorizedTasks {
   [key: string]: Task[];
 }
 
-interface  CategorizedScheduled {
-  [key: string]: Schedule[];
+interface CategorizedReminder {
+  [key: string]: Reminder[];
 }
 
+interface CategorizedScheduled {
+  [key: string] : Schedule[];
+}
 //lead//
 const columns = [
   { name: "COMPANY", uid: "companyName", sortable: true },
@@ -253,6 +276,23 @@ const columnsTask = [
   { name: "STATUS", uid: "status", sortable: true },
 ]
 
+//Invoice//
+const columnsReminder = [
+  { name: "COMPANY", uid: "companyName", sortable: true },
+  { name: "CUSTOMER", uid: "customerName", sortable: true },
+  { name: "EMAIL", uid: "emailAddress", sortable: true },
+  { name: "STATUS", uid: "status", sortable: true },
+];
+
+//Invoice//
+const columnsSchedule = [
+  { name: "SUBJECT", uid: "subject", sortable: true },
+  { name: "CUSTOMER", uid: "customerName", sortable: true },
+  { name: "Location", uid: "location", sortable: true },
+  { name: "STATUS", uid: "status", sortable: true },
+];
+
+
 const INITIAL_VISIBLE_COLUMNS = ["companyName", "customerName", "emailAddress", "productName"];
 
 const INITIAL_VISIBLE_COLUMNS_INVOICE = ["companyName", "customerName", "emailAddress", "productName"];
@@ -260,6 +300,10 @@ const INITIAL_VISIBLE_COLUMNS_INVOICE = ["companyName", "customerName", "emailAd
 const INITIAL_VISIBLE_COLUMNS_DEAL = ["companyName", "customerName", "emailAddress", "productName"];
 
 const INITIAL_VISIBLE_COLUMNS_TASK = ["subject", "relatedTo", "name", "status"];
+
+const INITIAL_VISIBLE_COLUMNS_REMINDER = ["companyName", "customerName", "emailAddress", "status"];
+
+const INITIAL_VISIBLE_COLUMNS_SCHEDULE = ["companyName", "customerName", "emailAddress", "status"];
 
 //Lead//
 const chartData = {
@@ -320,6 +364,7 @@ export default function Page() {
   const [filterValueInvoice, setFilterValueInvoice] = useState("");
   const [filterValueDeal, setFilterValueDeal] = useState("");
   const [filterValueTask, setFilterValueTask] = useState("");
+  const [filterValueReminder , setFilterValueReminder] = useState("");
   const [filterValueSchedule, setFilterValueSchedule] = useState("");
 
   const [statusFilter, setStatusFilter] = useState("all");
@@ -327,40 +372,48 @@ export default function Page() {
   const [categorizedInvoices, setCategorizedInvoices] = useState<CategorizedInvoices>({});
   const [categorizedDeals, setCategorizedDeals] = useState<CategorizedDeals>({});
   const [categorizedTasks, setCategorizedTasks] = useState<CategorizedTasks>({});
-  const [CategorizedScheduled , setCategorizedScheduled] = useState<CategorizedScheduled>({});
+  const [categorizedReminder , setCategorizedReminder] =  useState<CategorizedReminder>({});
+  const [CategorizedScheduled, setCategorizedSchedule] = useState<CategorizedScheduled>({});
   const [loading, setLoading] = useState(true);
 
   const [page, setPage] = useState(1);
   const [pageInvoice, setPageInvoice] = useState(1);
   const [pageDeal, setPageDeal] = useState(1);
   const [pageTask, setPageTask] = useState(1);
- const [pageSchedule, setPageSchedule] = useState(1);
+  const [pageReminder, setPageReminder] = useState(1);
+  const [pageSchedule, setPageSchedule] = useState(1);
 
   const [leads, setLeads] = useState<Lead[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [schedule, setSchedule] = useState<Schedule[]>([]);
+  const [reminder, setReminder] = useState<Reminder[]>([]);
+  const [schedule,setSchedule] = useState<Schedule[]>([]);
 
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const hasSearchFilter = Boolean(filterValue);
   const hasSearchFilterInvoice = Boolean(filterValueInvoice);
   const hasSearchFilterDeal = Boolean(filterValueDeal);
   const hasSearchFilterTask = Boolean(filterValueTask);
+  const hasSearchFilterReminder = Boolean(filterValueReminder);
   const hasSearchFilterSchedule = Boolean(filterValueSchedule);
 
     const [selectedKeys, setSelectedKeys] = React.useState<Selection>(new Set());
   const [selectedKeysInvoice, setSelectedKeysInvoice] = useState(new Set([]));
   const [selectedKeysDeal, setSelectedKeysDeal] = useState(new Set([]));
   const [selectedKeysTask, setSelectedKeysTask] = useState(new Set([]));
- const [seletedKeysSchedule, setSelectedKeysSchedule] = useState(new Set([]));
+  const [selectedKeysReminder, setSelectedKeysReminder] = useState(new Set([])); 
+  const [selectedKeysSchedule , setSelectedKeysSchedule] = useState( new Set([]));
 
   const [visibleColumns, setVisibleColumns] = useState(new Set(INITIAL_VISIBLE_COLUMNS));
   const [visibleColumnsInvoice, setVisibleColumnsInvoice] = useState(new Set(INITIAL_VISIBLE_COLUMNS_INVOICE));
   const [visibleColumnsDeal, setVisibleColumnsDeal] = useState(new Set(INITIAL_VISIBLE_COLUMNS_DEAL));
   const [visibleColumnsTask, setVisibleColumnsTask] = useState(new Set(INITIAL_VISIBLE_COLUMNS_TASK));
+  const [visibleColumnsReminder, setVisibleColumnsReminder] = useState(new Set(INITIAL_VISIBLE_COLUMNS_REMINDER));
+  const [visibleColumnsSchedule, setVisibleColumnsSchedule] = useState(new Set(INITIAL_VISIBLE_COLUMNS_SCHEDULE));
+
   const [sortDescriptor, setSortDescriptor] = useState({
-    column: "companyName",
+    column: "companyName", 
     direction: "ascending",
   });
 
@@ -374,11 +427,15 @@ export default function Page() {
     direction: "ascending",
   });
 
-  const [sortDescriptorSchedule, setSortDescriptorSchedule] = useState ({
-    column:"companyName",
-    direction:"ascending",
+  const [sortDescriptorReminder, setSortDescriptorReminder] = useState ({
+    column: "status",
+    direction : "ascending",
   })
 
+  const [sortDescriptorSchedule, setSortDescriptorSchedule] = useState ({
+    column: "status",
+    direction : "ascending",
+  })
   const filteredItems = React.useMemo(() => {
     let filteredLeads = [...leads];
 
@@ -487,7 +544,6 @@ export default function Page() {
         );
       });
     }
-    
 
     if (statusFilter !== "all") {
       filteredTasks = filteredTasks.filter((task) =>
@@ -499,32 +555,64 @@ export default function Page() {
   }, [tasks, filterValueTask, statusFilter]);
 
 
-  const filteredItemsSchedule = React.useMemo(() => {
-    let filteredSchedule = [...schedule];
-  
-    if (hasSearchFilterSchedule) {
-      filteredSchedule = filteredSchedule.filter((scheduled) => {
+  const filteredItemsReminder = React.useMemo(() => {
+    let filteredReminder = [...reminder];
+
+
+    if (hasSearchFilter) {
+      filteredReminder = filteredReminder.filter((reminder) => {
         const searchableFields = {
-          assignedUser: scheduled.assignedUser,
-          customer: scheduled.customer,
-          location: scheduled.location,
-          status: scheduled.status,
-          eventType: scheduled.eventType,
-          priority: scheduled.priority,
-          description: scheduled.description,
-          recurrence: scheduled.recurrence,
-          date: scheduled.date,
+          companyName: reminder.companyName,
+          customerName: reminder.customerName,
+          emailAddress: reminder.emailAddress,
+          productName: reminder.productName,
+          status: reminder.status
         };
-  
+
         return Object.values(searchableFields).some(value =>
-          String(value || '').toLowerCase().includes(filterValueSchedule.toLowerCase())
+          String(value || '').toLowerCase().includes(filterValue.toLowerCase())
         );
       });
     }
-  
-    return filteredSchedule;
-  }, [schedule, filterValueSchedule]);
 
+    if (statusFilter !== "all") {
+      filteredReminder = filteredReminder.filter((reminder) =>
+        statusFilter === reminder.status
+      );
+    }
+
+    return filteredReminder;
+  }, [leads, filterValue, statusFilter]);
+
+
+  const filteredItemsSchedule = React.useMemo(() => {
+    let filteredSchedule = [...schedule];
+
+
+    if (hasSearchFilter) {
+      filteredSchedule = filteredSchedule.filter((schedule) => {
+        const searchableFields = {
+          Subject: schedule.subject,
+          customer: schedule.customer,
+        assignedUser: schedule.assignedUser,
+          location: schedule.location,
+          status: schedule.status
+        };
+
+        return Object.values(searchableFields).some(value =>
+          String(value || '').toLowerCase().includes(filterValue.toLowerCase())
+        );
+      });
+    }
+
+    if (statusFilter !== "all") {
+      filteredSchedule = filteredSchedule.filter((schedule) =>
+        statusFilter === schedule.status
+      );
+    }
+
+    return filteredSchedule;
+  }, [schedule, filterValue, statusFilter]);
 
   const headerColumns = React.useMemo(() => {
     if (visibleColumns.size === columns.length) return columns; // Check if all columns are selected
@@ -538,6 +626,10 @@ export default function Page() {
   const pagesDeal = Math.ceil(deals.length / rowsPerPage);
 
   const pagesTask = Math.ceil(tasks.length / rowsPerPage);
+ 
+ const pagesReminder = Math.ceil(reminder.length / rowsPerPage );
+
+ const pagesSchedule = Math.ceil(schedule.length / rowsPerPage);
 
   const items = React.useMemo(() => {
     const start = (page - 1) * rowsPerPage;
@@ -567,8 +659,15 @@ export default function Page() {
     return filteredItemsTask.slice(start, end);
   }, [pageTask, filteredItemsTask, rowsPerPage]);
 
-  const itemsSchedule = React.useMemo (() =>{
-    const start = (pageDeal - 1) * rowsPerPage;
+  const itemsReminder = React.useMemo(() => {
+    const start = (pageReminder - 1) * rowsPerPage;
+    const end = start + rowsPerPage;
+
+    return filteredItemsReminder.slice(start, end);
+  }, [pageTask, filteredItemsReminder, rowsPerPage]);
+
+  const itemsSchedule = React.useMemo(() => {
+    const start = (pageSchedule - 1) * rowsPerPage;
     const end = start + rowsPerPage;
 
     return filteredItemsSchedule.slice(start, end);
@@ -594,17 +693,6 @@ export default function Page() {
     });
   }, [sortDescriptorDeal, itemsDeal]);
 
-  const sortedSchedule = React.useMemo(() => {
-    return [...itemsSchedule].sort((a,b) => {
-      const first = a[sortDescriptorSchedule.column as keyof Schedule];
-      const second = b [sortDescriptorSchedule.column as keyof Schedule];
-      const cmp = first < second ? -1 : first > second ? 1 : 0;
-
-      return sortDescriptorSchedule.direction === "descending" ? -cmp : cmp;
-    })
-  })
-
-
   const sortedTasks = React.useMemo(() => {
     return [...itemsTask].sort((a, b) => {
       const first = a[sortDescriptorTask.column as keyof Task];
@@ -614,6 +702,29 @@ export default function Page() {
       return sortDescriptorTask.direction === "descending" ? -cmp : cmp;
     });
   }, [sortDescriptorTask, itemsTask]);
+
+
+  const sortedReminder = React.useMemo(() => {
+    return [...itemsReminder].sort((a, b) => {
+      const first = a[sortDescriptorReminder.column as keyof Reminder];
+      const second = b[sortDescriptorReminder.column as keyof Reminder];
+      const cmp = first < second ? -1 : first > second ? 1 : 0;
+
+      return sortDescriptorReminder.direction === "descending" ? -cmp : cmp;
+    });
+  }, [sortDescriptorReminder, itemsReminder]);
+
+
+  const sortedSchedule = React.useMemo(() => {
+    return [...itemsSchedule].sort((a, b) => {
+      const first = a[sortDescriptorSchedule.column as keyof Schedule];
+      const second = b[sortDescriptorSchedule.column as keyof Schedule];
+      const cmp = first < second ? -1 : first > second ? 1 : 0;
+
+      return sortDescriptorSchedule.direction === "descending" ? -cmp : cmp;
+    });
+  }, [sortDescriptorSchedule, itemsSchedule]);
+
 
   //Lead//
   useEffect(() => {
@@ -762,9 +873,9 @@ export default function Page() {
     fetchTasks();
   }, []);
 
-  //Schedule//
+  //Task//
   useEffect(() => {
-    const fetchSchedule = async () => {
+    const fetchTasks = async () => {
       try {
         const response = await fetch('http://localhost:8000/api/v1/scheduledEvents/getAllScheduledEvents');
         const result = await response.json();
@@ -779,23 +890,91 @@ export default function Page() {
         setTasks(result.data);
 
         // Categorize tasks by status
-        const categorized = result.data.reduce((acc: CategorizedScheduled, scheduled: Schedule) => {
-          if (!acc[scheduled.status]) {
-            acc[scheduled.status] = [];
+        const categorized = result.data.reduce((acc: CategorizedTasks, task: Task) => {
+          if (!acc[task.status]) {
+            acc[task.status] = [];
           }
-          acc[scheduled.status].push(scheduled);
+          acc[task.status].push(task);
           return acc;
-        }, {} as CategorizedScheduled);
+        }, {} as CategorizedTasks);
 
-        setCategorizedScheduled(categorized);
+        setCategorizedTasks(categorized);
       } catch (error) {
-        console.error('Error fetching scheduleds:', error);
+        console.error('Error fetching tasks:', error);
       }
     };
 
-    fetchSchedule();
+    fetchTasks();
   }, []);
 
+  //Reminder
+    useEffect(() => {
+      const fetchReminder = async () => {
+        try {
+          const response = await fetch('http://localhost:8000/api/v1/invoice/getUnpaidInvoices');
+          const result = await response.json();
+  
+          // Check if result is an object with data property
+          if (!result || !Array.isArray(result.data)) {
+            console.error('Invalid data format received:', result);
+            return;
+          }
+  
+          // Set the tasks data for the table
+          setReminder(result.data);
+  
+          // Categorize tasks by status
+          const categorized = result.data.reduce((acc: CategorizedReminder, reminder: Reminder) => {
+            if (!acc[reminder.status]) {
+              acc[reminder.status] = [];
+            }
+            acc[reminder.status].push(reminder);
+            return acc;
+          }, {} as CategorizedReminder);
+  
+          setCategorizedReminder(categorized);
+        } catch (error) {
+          console.error('Error fetching tasks:', error);
+        }
+      };
+  
+      fetchReminder();
+    }, []);
+
+
+    //Schedule
+    useEffect(() => {
+      const fetchSchedule = async () => {
+        try {
+          const response = await fetch('http://localhost:8000/api/v1/scheduledEvents/getAllScheduledEvents');
+          const result = await response.json();
+  
+          // Check if result is an object with data property
+          if (!result || !Array.isArray(result.data)) {
+            console.error('Invalid data format received:', result);
+            return;
+          }
+  
+          // Set the tasks data for the table
+          setSchedule(result.data);
+  
+          // Categorize tasks by status
+          const categorized = result.data.reduce((acc: CategorizedScheduled, schedule: Schedule) => {
+            if (!acc[schedule.status]) {
+              acc[schedule.status] = [];
+            }
+            acc[schedule.status].push(schedule);
+            return acc;
+          }, {} as CategorizedScheduled);
+  
+          setCategorizedSchedule(categorized);
+        } catch (error) {
+          console.error('Error fetching tasks:', error);
+        }
+      };
+  
+      fetchSchedule();
+    }, []);
 
   const onNextPage = React.useCallback(() => {
     if (page < pages) {
@@ -1540,20 +1719,57 @@ if (selectedChartDeal === "Bar Chart") {
     );
   }, [selectedKeysTask, tasks.length, pageTask, pagesTask, hasSearchFilterTask]);
 
-
-  const bottomContentSchedule = React.useMemo (() => {
+   //Reminder//
+   const bottomContentReminder = React.useMemo(() => {
     return (
       <div className="py-2 px-2 flex justify-between items-center">
         <span className="w-[30%] text-small text-default-400">
-          {seletedKeysSchedule === "all" ? "All items selected"
-            : `${seletedKeysSchedule.size} of ${filteredItemsSchedule.length} selected`}
+          {selectedKeysReminder === "all"
+            ? "All items selected"
+            : `${selectedKeysReminder.size} of ${filteredItemsReminder.length} selected`}
+        </span>
+        <Pagination
+          isCompact
+          showShadow
+          color="success"
+          page={pageReminder}
+          total={pagesReminder}
+          onChange={setPageReminder}
+          classNames={{
+            cursor: "bg-[hsl(339.92deg_91.04%_52.35%)] shadow-md",
+            item: "data-[active=true]:bg-[hsl(339.92deg_91.04%_52.35%)] data-[active=true]:text-white rounded-lg",
+          }}
+        />
+
+        <div className="rounded-lg bg-default-100 hover:bg-default-200 hidden sm:flex w-[30%] justify-end gap-2">
+          <Button className="bg-[hsl(339.92deg_91.04%_52.35%)] rounded-lg" isDisabled={pagesReminder === 1} size="sm" variant="flat" onPress={onPreviousPage}>
+            Previous
+          </Button>
+          <Button className="bg-[hsl(339.92deg_91.04%_52.35%)] rounded-lg" isDisabled={pagesReminder === 1} size="sm" variant="flat" onPress={onNextPage}>
+            Next
+          </Button>
+        </div>
+      </div>
+    );
+  }, [selectedKeysReminder, reminder.length, pageReminder, pagesReminder, hasSearchFilterReminder]);
+
+
+  
+   //Reminder//
+   const bottomContentSchedule = React.useMemo(() => {
+    return (
+      <div className="py-2 px-2 flex justify-between items-center">
+        <span className="w-[30%] text-small text-default-400">
+          {selectedKeysSchedule === "all"
+            ? "All items selected"
+            : `${selectedKeysSchedule.size} of ${filteredItemsSchedule.length} selected`}
         </span>
         <Pagination
           isCompact
           showShadow
           color="success"
           page={pageSchedule}
-          total={pageSchedule}
+          total={pagesSchedule}
           onChange={setPageSchedule}
           classNames={{
             cursor: "bg-[hsl(339.92deg_91.04%_52.35%)] shadow-md",
@@ -1562,21 +1778,27 @@ if (selectedChartDeal === "Bar Chart") {
         />
 
         <div className="rounded-lg bg-default-100 hover:bg-default-200 hidden sm:flex w-[30%] justify-end gap-2">
-          <Button className="bg-[hsl(339.92deg_91.04%_52.35%)] rounded-lg" isDisabled={pageSchedule === 1} size="sm" variant="flat" onPress={onPreviousPage}>
+          <Button className="bg-[hsl(339.92deg_91.04%_52.35%)] rounded-lg" isDisabled={pagesSchedule === 1} size="sm" variant="flat" onPress={onPreviousPage}>
             Previous
           </Button>
-          <Button className="bg-[hsl(339.92deg_91.04%_52.35%)] rounded-lg" isDisabled={pageSchedule === 1} size="sm" variant="flat" onPress={onNextPage}>
+          <Button className="bg-[hsl(339.92deg_91.04%_52.35%)] rounded-lg" isDisabled={pagesSchedule === 1} size="sm" variant="flat" onPress={onNextPage}>
             Next
           </Button>
         </div>
       </div>
     );
-  })
-
+  }, [selectedKeysSchedule, schedule.length, pageSchedule, pagesSchedule, hasSearchFilterSchedule]);
 
   const renderCell = React.useCallback((lead: Lead, columnKey: React.Key) => {
     const cellValue = lead[columnKey as keyof Lead];
 
+    const statusColorMap: Record<string, string> = {
+      pending: "warning",
+      completed: "success",
+      canceled: "danger",
+      in_progress: "primary",
+    };
+    
     switch (columnKey) {
       case "companyName":
       case "customerName":
@@ -1756,7 +1978,96 @@ if (selectedChartDeal === "Bar Chart") {
     }
   }, []);
 
+  const renderCellReminder = React.useCallback((reminder: Reminder, columnKey: React.Key) => {
+    const cellValue = reminder[columnKey as keyof Reminder];
 
+    switch (columnKey) {
+      case "subject":
+      case "relatedTo":
+      case "name":
+      case "assigned":
+      case "taskDate":
+      case "dueDate":
+      case "status":
+      case "priority":
+      case "isActive":
+        return cellValue;
+      case "status":
+        return (
+          <Chip
+            className="capitalize"
+            color={statusColorMap[reminder.status]}
+            size="sm"
+            variant="flat"
+          >
+            {cellValue}
+          </Chip>
+        );
+      case "actions":
+        return (
+          <div className="relative flex items-center gap-2">
+            <Tooltip content="Edit task">
+              <span className="text-lg text-default-400 cursor-pointer active:opacity-50">
+                <Pencil size={20} />
+              </span>
+            </Tooltip>
+            <Tooltip color="danger" content="Delete task">
+              <span className="text-lg text-danger cursor-pointer active:opacity-50">
+                <Trash2 size={20} />
+              </span>
+            </Tooltip>
+          </div>
+        );
+      default:
+        return cellValue;
+    }
+  }, []);
+
+
+  const renderCellSchedule = React.useCallback((schedule: Schedule, columnKey: React.Key) => {
+    const cellValue = schedule[columnKey as keyof Schedule];
+
+    switch (columnKey) {
+      case "subject":
+      case "relatedTo":
+      case "name":
+      case "assigned":
+      case "taskDate":
+      case "dueDate":
+      case "status":
+      case "priority":
+      case "isActive":
+        return cellValue;
+      case "status":
+        return (
+          <Chip
+            className="capitalize"
+            color={statusColorMap[schedule.status]}
+            size="sm"
+            variant="flat"
+          >
+            {cellValue}
+          </Chip>
+        );
+      case "actions":
+        return (
+          <div className="relative flex items-center gap-2">
+            <Tooltip content="Edit task">
+              <span className="text-lg text-default-400 cursor-pointer active:opacity-50">
+                <Pencil size={20} />
+              </span>
+            </Tooltip>
+            <Tooltip color="danger" content="Delete task">
+              <span className="text-lg text-danger cursor-pointer active:opacity-50">
+                <Trash2 size={20} />
+              </span>
+            </Tooltip>
+          </div>
+        );
+      default:
+        return cellValue;
+    }
+  }, []);
 
 
   return (
@@ -2081,16 +2392,17 @@ if (selectedChartDeal === "Bar Chart") {
                   <Table
                     isHeaderSticky
                     aria-label="Invoices table with custom cells, pagination and sorting"
-                    bottomContent={bottomContent}
+                    bottomContent={bottomContentReminder}
                     bottomContentPlacement="outside"
                     classNames={{
                       wrapper: "max-h-[382px]",
                     }}
-                    selectedKeys={selectedKeys}
+                    selectedKeys={selectedKeysReminder}
                     selectionMode="none"
+                    sortDescriptor={sortDescriptorReminder}
                     topContentPlacement="outside"
                   >
-                    <TableHeader columns={headerColumns}>
+                    <TableHeader columns={columnsReminder}>
                       {(column) => (
                         <TableColumn
                           key={column.uid}
@@ -2101,7 +2413,7 @@ if (selectedChartDeal === "Bar Chart") {
                         </TableColumn>
                       )}
                     </TableHeader>
-                    <TableBody emptyContent={"No invoices found"} items={sortedSchedule}>
+                    <TableBody emptyContent={"No invoices found"} items={itemsReminder}>
                       {(item) => (
                         <TableRow key={item._id}>
                           {(columnKey) => <TableCell>{renderCell(item, columnKey)}</TableCell>}
@@ -2126,11 +2438,12 @@ if (selectedChartDeal === "Bar Chart") {
                     classNames={{
                       wrapper: "max-h-[382px]",
                     }}
-                    selectedKeys={setSelectedKeysSchedule}
+                    selectedKeys={selectedKeysSchedule}
                     selectionMode="none"
+                    sortDescriptor={sortDescriptorSchedule}
                     topContentPlacement="outside"
                   >
-                    <TableHeader columns={headerColumns}>
+                    <TableHeader columns={columnsSchedule}>
                       {(column) => (
                         <TableColumn
                           key={column.uid}
@@ -2141,7 +2454,7 @@ if (selectedChartDeal === "Bar Chart") {
                         </TableColumn>
                       )}
                     </TableHeader>
-                    <TableBody emptyContent={"No scedul found"} items={sortedItems}>
+                    <TableBody emptyContent={"No invoices found"} items={sortedItems}>
                       {(item) => (
                         <TableRow key={item._id}>
                           {(columnKey) => <TableCell>{renderCell(item, columnKey)}</TableCell>}

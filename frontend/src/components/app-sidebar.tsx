@@ -33,7 +33,8 @@ import {
 } from "@/components/ui/sidebar"
 import { title } from "process"
 import { url } from "inspector"
-
+import { Progress } from "@/components/ui/progress"; // Import the Progress bar component
+import { Cloud } from "lucide-react"; // Import Cloud icon
 
 const data = {
   user: {
@@ -194,6 +195,8 @@ const data = {
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const [isClient, setIsClient] = React.useState(false)
   const [activePath, setActivePath] = React.useState("")
+  const [hover, setHover] = React.useState(false);
+  const storageValue = 60; // Example storage usage percentage
 
   React.useEffect(() => {
     setIsClient(true) 
@@ -221,10 +224,36 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarContent>
         <NavMain items={updatedNavMain} />
       </SidebarContent>
+
+       {/* Google Storage Section */}
+       <div className="px-4 py-3 space-y-1">
+        <div className="flex items-center gap-2 text-sm text-gray-600">
+          <Cloud className="size-4 text-gray-500" />
+          
+        </div>
+
+        <div
+          className="relative group"
+          onMouseEnter={() => setHover(true)}
+          onMouseLeave={() => setHover(false)}
+        >
+          <Progress value={storageValue} className="h-1" />
+
+          {hover && (
+            <div className="absolute left-1/2 -top-6 -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-800 px-2 py-1 text-xs text-white shadow-md">
+              {storageValue}% Used
+            </div>
+          )}
+        </div>
+      </div>
+
+
       <SidebarFooter>
         <NavUser user={data.user} />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
+
+    
   )
 }
